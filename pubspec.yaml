@@ -1,0 +1,52 @@
+name: civic_issue_app
+description: Civic Issue Reporting App with Voting and Alerts
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Supabase
+  supabase_flutter: ^2.3.0
+  
+  # Location
+  geolocator: ^11.0.0
+  geocoding: ^2.1.1
+  google_maps_flutter: ^2.5.3
+  
+  # Image handling
+  image_picker: ^1.0.7
+  cached_network_image: ^3.3.1
+  
+  # State management
+  flutter_riverpod: ^2.4.10
+  
+  # UI components
+  flutter_local_notifications: ^17.0.0
+  badges: ^3.1.2
+  shimmer: ^3.0.0
+  
+  # Utilities
+  intl: ^0.19.0
+  permission_handler: ^11.2.0
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.2.4
+  flutter_dotenv: ^5.1.0
+  
+  # Firebase (for push notifications)
+  firebase_core: ^2.25.0
+  firebase_messaging: ^14.7.14
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/images/
