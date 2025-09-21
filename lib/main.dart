@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,7 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
-import 'services/supabase_client.dart';
+import 'services/supabase_service.dart';
 import 'services/alert_service.dart';
 
 // Background message handler
@@ -87,7 +88,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   }
 
   void _listenToAuthChanges() {
-    SupabaseClient.instance.auth.onAuthStateChange.listen((data) {
+    SupabaseService.client.auth.onAuthStateChange.listen((data) {
       if (mounted) {
         setState(() {});
       }
@@ -96,7 +97,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final session = SupabaseClient.instance.auth.currentSession;
+    final session = SupabaseService.client.auth.currentSession;
 
     if (session != null) {
       return const HomeScreen();

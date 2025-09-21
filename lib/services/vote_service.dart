@@ -1,9 +1,10 @@
+// lib/services/vote_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'supabase_client.dart';
+import 'supabase_service.dart';
 import 'location_service.dart';
 
 class VoteService {
-  final _supabase = SupabaseClient.client;
+  final _supabase = SupabaseService.client;
   final _locationService = LocationService();
 
   Future<Map<String, dynamic>> voteOnIssue(String issueId) async {

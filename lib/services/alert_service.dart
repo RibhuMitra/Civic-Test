@@ -1,11 +1,12 @@
+// lib/services/alert_service.dart
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/alert.dart';
-import 'supabase_client.dart';
+import 'supabase_service.dart';
 
 class AlertService {
-  final _supabase = SupabaseClient.client;
+  final _supabase = SupabaseService.client;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -141,7 +142,7 @@ class AlertService {
           .order('created_at', ascending: false);
 
       if (unreadOnly) {
-        query = query.isFilter('seen_at', null);
+        query = query.filter('seen_at', 'is', null);
       }
 
       final response = await query;
@@ -157,7 +158,7 @@ class AlertService {
           .from('alerts')
           .select('id')
           .eq('user_id', _supabase.auth.currentUser!.id)
-          .isFilter('seen_at', null);
+          .filter('seen_at', 'is', null);
 
       return (response as List).length;
     } catch (e) {
@@ -180,7 +181,7 @@ class AlertService {
           .from('alerts')
           .update({'seen_at': DateTime.now().toIso8601String()})
           .eq('user_id', _supabase.auth.currentUser!.id)
-          .isFilter('seen_at', null);
+          .filter('seen_at', 'is', null);
     } catch (e) {
       print('Error marking all alerts as read: $e');
     }

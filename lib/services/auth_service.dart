@@ -1,9 +1,10 @@
+// lib/services/auth_service.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'supabase_client.dart';
+import 'supabase_service.dart';
 
 class AuthService {
-  final _supabase = SupabaseClient.client;
+  final _supabase = SupabaseService.client;
 
   Future<AuthResponse> signUp({
     required String email,

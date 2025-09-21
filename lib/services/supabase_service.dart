@@ -1,12 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SupabaseClient {
-  static SupabaseClient? _instance;
+class SupabaseService {
+  static SupabaseService? _instance;
 
-  SupabaseClient._();
+  SupabaseService._();
 
-  static SupabaseClient get instance {
-    _instance ??= SupabaseClient._();
+  static SupabaseService get instance {
+    _instance ??= SupabaseService._();
     return _instance!;
   }
 

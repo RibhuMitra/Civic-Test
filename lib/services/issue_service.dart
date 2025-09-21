@@ -1,12 +1,13 @@
+// lib/services/issue_service.dart
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/issue.dart';
-import 'supabase_client.dart';
+import 'supabase_service.dart';
 import 'location_service.dart';
 
 class IssueService {
-  final _supabase = SupabaseClient.client;
+  final _supabase = SupabaseService.client;
   final _locationService = LocationService();
 
   Future<List<Issue>> getIssues({

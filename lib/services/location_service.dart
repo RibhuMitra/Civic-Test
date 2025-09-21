@@ -1,10 +1,11 @@
+// lib/services/location_service.dart
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'supabase_client.dart';
+import 'supabase_service.dart';
 
 class LocationService {
-  final _supabase = SupabaseClient.client;
+  final _supabase = SupabaseService.client;
 
   Future<bool> requestLocationPermission() async {
     final status = await Permission.location.request();
