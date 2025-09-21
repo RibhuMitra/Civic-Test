@@ -2,7 +2,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseClient {
   static SupabaseClient? _instance;
-  late final SupabaseClient client;
 
   SupabaseClient._();
 
