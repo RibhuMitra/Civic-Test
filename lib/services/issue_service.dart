@@ -18,33 +18,71 @@ class IssueService {
     double? maxDistanceKm,
   }) async {
     try {
-      var query = _supabase.from('issues').select('*, votes(user_id)');
-
-      // Add distance filter if location provided
-      if (userLat != null && userLon != null && maxDistanceKm != null) {
-        query = query.rpc('get_nearby_issues', params: {
-          'user_lat': userLat,
-          'user_lon': userLon,
-          'max_distance': maxDistanceKm,
-        });
-      }
-
-      // Add sorting
-      query = query.order(sortBy!, ascending: !descending);
-
-      final response = await query;
+      // Build query step by step without storing intermediate variables
+      final response = await _supabase
+          .from('issues')
+          .select('*')
+          .order(sortBy!, ascending: !descending);
 
       final currentUserId = _supabase.auth.currentUser?.id;
 
-      return (response as List).map((json) {
-        // Check if current user has voted
-        final votes = json['votes'] as List?;
-        final hasVoted =
-            votes?.any((v) => v['user_id'] == currentUserId) ?? false;
+      // Get votes separately to avoid complex joins
+      List<Issue> issues = [];
 
+      for (final json in (response as List)) {
+        // Check if current user has voted on this issue
+        bool hasVoted = false;
+        if (currentUserId != null) {
+          try {
+            final voteResponse = await _supabase
+                .from('votes')
+                .select('id')
+                .eq('issue_id', json['id'])
+                .eq('user_id', currentUserId)
+                .maybeSingle();
+
+            hasVoted = voteResponse != null;
+          } catch (e) {
+            // If vote check fails, assume not voted
+            hasVoted = false;
+          }
+        }
+
+        // Calculate distance if user location provided
+        double? distanceKm;
+        if (userLat != null && userLon != null) {
+          distanceKm = _locationService.calculateDistance(
+            userLat,
+            userLon,
+            json['latitude'].toDouble(),
+            json['longitude'].toDouble(),
+          );
+
+          // Skip if outside max distance
+          if (maxDistanceKm != null && distanceKm > maxDistanceKm) {
+            continue;
+          }
+        }
+
+        // Add calculated fields to json
         json['has_voted'] = hasVoted;
-        return Issue.fromJson(json);
-      }).toList();
+        if (distanceKm != null) {
+          json['distance_km'] = distanceKm;
+        }
+
+        issues.add(Issue.fromJson(json));
+      }
+
+      // Sort by distance if user location provided
+      if (userLat != null && userLon != null && sortBy == 'distance') {
+        issues.sort((a, b) {
+          final distA = a.distanceKm ?? double.infinity;
+          final distB = b.distanceKm ?? double.infinity;
+          return descending ? distB.compareTo(distA) : distA.compareTo(distB);
+        });
+      }
+
+      return issues;
     } catch (e) {
       throw Exception('Failed to load issues: $e');
     }
@@ -112,16 +150,27 @@ class IssueService {
 
   Future<Issue> getIssueById(String id) async {
     try {
-      final response = await _supabase
-          .from('issues')
-          .select('*, votes(user_id)')
-          .eq('id', id)
-          .single();
+      final response =
+          await _supabase.from('issues').select('*').eq('id', id).single();
 
       final currentUserId = _supabase.auth.currentUser?.id;
-      final votes = response['votes'] as List?;
-      final hasVoted =
-          votes?.any((v) => v['user_id'] == currentUserId) ?? false;
+      bool hasVoted = false;
+
+      // Check if current user has voted
+      if (currentUserId != null) {
+        try {
+          final voteResponse = await _supabase
+              .from('votes')
+              .select('id')
+              .eq('issue_id', id)
+              .eq('user_id', currentUserId)
+              .maybeSingle();
+
+          hasVoted = voteResponse != null;
+        } catch (e) {
+          hasVoted = false;
+        }
+      }
 
       response['has_voted'] = hasVoted;
       return Issue.fromJson(response);
@@ -146,5 +195,119 @@ class IssueService {
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .map((data) => data.map((json) => Issue.fromJson(json)).toList());
+  }
+
+  // Helper method to get issues near a location
+  Future<List<Issue>> getNearbyIssues({
+    required double userLat,
+    required double userLon,
+    double maxDistanceKm = 5.0,
+    String sortBy = 'distance',
+  }) async {
+    return getIssues(
+      userLat: userLat,
+      userLon: userLon,
+      maxDistanceKm: maxDistanceKm,
+      sortBy: sortBy,
+    );
+  }
+
+  // Helper method to get issues by category
+  Future<List<Issue>> getIssuesByCategory(String category) async {
+    try {
+      final response = await _supabase
+          .from('issues')
+          .select('*')
+          .eq('category', category)
+          .order('created_at', ascending: false);
+
+      return (response as List).map((json) => Issue.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Failed to load issues by category: $e');
+    }
+  }
+
+  // Helper method to get issues by status
+  Future<List<Issue>> getIssuesByStatus(String status) async {
+    try {
+      final response = await _supabase
+          .from('issues')
+          .select('*')
+          .eq('status', status)
+          .order('created_at', ascending: false);
+
+      return (response as List).map((json) => Issue.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Failed to load issues by status: $e');
+    }
+  }
+
+  // Helper method to get user's own issues
+  Future<List<Issue>> getUserIssues({String? userId}) async {
+    try {
+      final targetUserId = userId ?? _supabase.auth.currentUser?.id;
+      if (targetUserId == null) {
+        throw Exception('No user ID provided');
+      }
+
+      final response = await _supabase
+          .from('issues')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .order('created_at', ascending: false);
+
+      return (response as List).map((json) => Issue.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Failed to load user issues: $e');
+    }
+  }
+
+  // Helper method to search issues by title or description
+  Future<List<Issue>> searchIssues(String searchTerm) async {
+    try {
+      final response = await _supabase
+          .from('issues')
+          .select('*')
+          .or('title.ilike.%$searchTerm%,description.ilike.%$searchTerm%')
+          .order('created_at', ascending: false);
+
+      return (response as List).map((json) => Issue.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Failed to search issues: $e');
+    }
+  }
+
+  // Get issue statistics
+  Future<Map<String, dynamic>> getIssueStats() async {
+    try {
+      // Get total count
+      final totalResponse = await _supabase.from('issues').select('id');
+      final totalCount = (totalResponse as List).length;
+
+      // Get counts by status
+      final openResponse =
+          await _supabase.from('issues').select('id').eq('status', 'open');
+      final openCount = (openResponse as List).length;
+
+      final resolvedResponse =
+          await _supabase.from('issues').select('id').eq('status', 'resolved');
+      final resolvedCount = (resolvedResponse as List).length;
+
+      final inProgressResponse = await _supabase
+          .from('issues')
+          .select('id')
+          .eq('status', 'in_progress');
+      final inProgressCount = (inProgressResponse as List).length;
+
+      return {
+        'total': totalCount,
+        'open': openCount,
+        'resolved': resolvedCount,
+        'in_progress': inProgressCount,
+        'closed': totalCount - openCount - resolvedCount - inProgressCount,
+      };
+    } catch (e) {
+      throw Exception('Failed to get issue statistics: $e');
+    }
   }
 }

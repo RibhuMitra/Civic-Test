@@ -2,6 +2,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/material.dart';
 import '../models/alert.dart';
 import 'supabase_service.dart';
 
@@ -133,34 +134,48 @@ class AlertService {
     }
   }
 
+  // GET ALL ALERTS - Using simple WHERE clause approach
   Future<List<Alert>> getAlerts({bool unreadOnly = false}) async {
     try {
-      var query = _supabase
-          .from('alerts')
-          .select()
-          .eq('user_id', _supabase.auth.currentUser!.id)
-          .order('created_at', ascending: false);
-
+      // Method 1: Use simple query without null filter first
       if (unreadOnly) {
-        query = query.filter('seen_at', 'is', null);
-      }
+        // Get only unread alerts by checking where seen_at is null
+        final response = await _supabase
+            .from('alerts')
+            .select()
+            .eq('user_id', _supabase.auth.currentUser!.id)
+            .order('created_at', ascending: false);
 
-      final response = await query;
-      return (response as List).map((json) => Alert.fromJson(json)).toList();
+        // Filter out null values in Dart instead
+        final allAlerts =
+            (response as List).map((json) => Alert.fromJson(json)).toList();
+        return allAlerts.where((alert) => alert.seenAt == null).toList();
+      } else {
+        // Get all alerts
+        final response = await _supabase
+            .from('alerts')
+            .select()
+            .eq('user_id', _supabase.auth.currentUser!.id)
+            .order('created_at', ascending: false);
+
+        return (response as List).map((json) => Alert.fromJson(json)).toList();
+      }
     } catch (e) {
       throw Exception('Failed to load alerts: $e');
     }
   }
 
+  // GET UNREAD COUNT - Using Dart filtering
   Future<int> getUnreadCount() async {
     try {
       final response = await _supabase
           .from('alerts')
-          .select('id')
-          .eq('user_id', _supabase.auth.currentUser!.id)
-          .filter('seen_at', 'is', null);
+          .select()
+          .eq('user_id', _supabase.auth.currentUser!.id);
 
-      return (response as List).length;
+      final alerts =
+          (response as List).map((json) => Alert.fromJson(json)).toList();
+      return alerts.where((alert) => alert.seenAt == null).length;
     } catch (e) {
       return 0;
     }
@@ -175,13 +190,16 @@ class AlertService {
     }
   }
 
+  // MARK ALL AS READ - Update all unread alerts for user
   Future<void> markAllAlertsAsRead() async {
     try {
-      await _supabase
-          .from('alerts')
-          .update({'seen_at': DateTime.now().toIso8601String()})
-          .eq('user_id', _supabase.auth.currentUser!.id)
-          .filter('seen_at', 'is', null);
+      // Get all unread alerts first
+      final unreadAlerts = await getAlerts(unreadOnly: true);
+
+      // Update each one
+      for (final alert in unreadAlerts) {
+        await markAlertAsRead(alert.id);
+      }
     } catch (e) {
       print('Error marking all alerts as read: $e');
     }
